@@ -56,11 +56,9 @@ python app.py
 Then you can access the app at ```localhost:3000```
 
 You can upload a single image (.png, .jpg, .jpeg, or .webp extension), or a zip file. This app can perform perfectly on sub-directories zip. 
-After you finish uploading, the image will be shown. <br><br/>
+After you finish uploading, the image will be shown.
 
-To start translating the manga, you can press the "crop button", and start selecting the text you want to translate.
-
-Hereafter should be pretty straightforward. Have fun!
+To start translating the manga, you can press the "crop button", and start selecting the text you want to translate. Afterward, it should be pretty straightforward. Have fun!
 
 ## 🚧 Limitation and Plan
 - While this app is working perfectly on small amount of japanese character, 
