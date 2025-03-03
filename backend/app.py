@@ -8,9 +8,14 @@ from PIL import Image
 import io
 from together import Together
 from manga_ocr import MangaOcr
+from dotenv import load_dotenv
+import threading
 
-TOGETHER_API_KEY = "df01a53e2fa1025703587ea952b8f4503f932853db92d7b9cf8c2c6adea05bd3"
-client = Together(api_key=TOGETHER_API_KEY)
+lock = threading.Lock()
+
+load_dotenv(".env.local")
+
+client = Together(api_key=os.getenv('TOGETHER_API_KEY'))
 message = [
             {"role": "user", "content": "Your task is to translate text from Japanese to English. You can use before conversation for context, but your final answer should only give the translation. Do not provide any additional explanations or comments. Only return the translation of the given text. The result of the translate should pay attention to the atmosphere of the original text, and the translation should be accurate, maintain the original tone, handle cultural nuances, and ensure proper grammar and terminology."},
             {"role": "assistant", "content": "The task is to translate Japanese text into English, using prior conversations for context if necessary, but ensuring the final output is solely the translation without additional commentary. The translation should be accurate, maintain the original tone, handle cultural nuances, and ensure proper grammar and terminology."}
@@ -127,11 +132,13 @@ def serve_uploaded_file(filename):
 
 @app.route('/process_region', methods=['POST'])
 def process_region():
-    data = request.json
-    image_url = data['image']
-    region = data['region']
+    lock.acquire()
 
     try:
+        data = request.json
+        image_url = data['image']
+        region = data['region']
+
         # Extract the filename from the URL
         image_filename = image_url.split('/')[-1]
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
@@ -189,6 +196,8 @@ def process_region():
     except Exception as e:
         print(f"Error processing region: {e}")
         return jsonify({'error': str(e)}), 500
+    finally:
+        lock.release()
 
 @app.route('/clear_cache', methods=['POST'])
 def clear_translation_cache():
