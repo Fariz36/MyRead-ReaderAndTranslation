@@ -5,10 +5,11 @@ import { useState, useRef, useCallback } from "react"
 import axios from "axios"
 import { Button } from "./components/ui/button"
 import { Textarea } from "./components/ui/textarea"
-import { Upload, RefreshCw, Crop, HelpCircle } from "lucide-react"
+import { Upload, RefreshCw, Crop, HelpCircle, Languages} from "lucide-react"
 import Navbar from "./components/navbar"
 import ImageSelector from "./components/imageselector"
 import TutorialButton from "./components/tutorialbutton"
+import TranslationMethodModal from "./components/translationmethod"
 
 const API_BASE_URL = "http://localhost:5000"
 
@@ -23,6 +24,8 @@ export default function MangaReader() {
   const [boxesPage, setBoxesPage] = useState<{ x: number; y: number; width: number; height: number ; text:string }[][]>([])
   const [activeBoxIndex, setActiveBoxIndex] = useState<{ imageIndex: number; boxIndex: number } | null>(null);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false)
+  const [isTranslationMethodOpen, setIsTranslationMethodOpen] = useState(false)
+  const [translationMethod, setTranslationMethod] = useState<"method1" | "method2" | null>(null)
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -86,6 +89,8 @@ export default function MangaReader() {
         console.log(response.data.message)
         setRaw("")
         setTranslated("")
+        setBoxesPage(images.map(() => []));
+        setActiveBoxIndex(null);
       } else {
         console.error("Failed to clear translation cache:", response.data.error)
         alert("Failed to clear cache translation cache.")
@@ -107,29 +112,27 @@ export default function MangaReader() {
   const handleRegionSelect = useCallback(
     async (region: { x: number; y: number; width: number; height: number; text: string }, imageIndex: number) => {
       setError(null)
+      let method = translationMethod;
+      if (method === null) {
+        method = "method1";
+        setTranslationMethod("method1");
+      }
 
       try {
         const response = await axios.post(`${API_BASE_URL}/process_region`, {
           image: images[imageIndex],
           region: region,
+          method: method,
         })
-
-        console.log("bef : ", boxesPage[imageIndex]);
-
-        console.log("region : ", region);
-        console.log("imageIndex : ", imageIndex);
 
         setBoxesPage((prev) => {
             const newBoxesPage = prev.map((page, idx) =>
                 idx === imageIndex ? [...page, { ...region, text: (response.data.text + "\n" + response.data.translated_text) || "" }] : page
             );
 
-            console.log("aft : ", newBoxesPage[imageIndex]);
             return newBoxesPage;
         });
-        
-        console.log("aft : ", boxesPage[imageIndex]);
-      
+
         // Handle the response from the backend
         setRaw((prevRaw) => prevRaw + response.data.text + "\n");
         setTranslated((prevTranslated) => prevTranslated + response.data.translated_text + "\n");
@@ -139,8 +142,12 @@ export default function MangaReader() {
         setError("Error processing region. Please try again.")
       } 
     },
-    [images],
+    [images, translationMethod],
   )
+
+  const handleTranslationMethodSelect = (method: "method1" | "method2") => {
+    setTranslationMethod(method)
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
@@ -182,6 +189,13 @@ export default function MangaReader() {
                 <HelpCircle className="h-5 w-5" />
                 <span className="sr-only">Tutorial</span>
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsTranslationMethodOpen(true)}
+                className="flex items-center gap"
+              >
+                <Languages className="h-5 w-5" />
+              </Button>
             </div>
           </div>
 
@@ -200,7 +214,7 @@ export default function MangaReader() {
                   {images.map((image, index) => (
                     <div
                       key={index}
-                      className="mb-4 w-full flex justify-center relative"
+                      className="mb-4 w-full flex relative"
                       style={{ position: "relative" }}
                     >
                       <ImageSelector
@@ -223,7 +237,7 @@ export default function MangaReader() {
 
                         // Calculate the correct position and size of the box
                         const scaledBox = {
-                          x: box.x*scaleX - 32.5*window.screen.width/100,
+                          x: box.x * scaleX - imageElement.parentElement!.getBoundingClientRect().left + imageRect.left,
                           y: box.y * scaleY + imageRect.top - imageElement.parentElement!.getBoundingClientRect().top,
                           width: box.width * scaleX,
                           height: box.height * scaleY,
@@ -232,17 +246,12 @@ export default function MangaReader() {
                         const isActive = activeBoxIndex?.imageIndex === index && activeBoxIndex?.boxIndex === i;
 
                         const isRight = (box.x + box.width + 200) < window.screen.width * 0.6;
-                        console.log(box.x + box.width + 200);
-                        console.log(box.x);
-                        console.log(box.width);
-                        console.log(window.screen.width * 0.6);
                         const popupStyle = {
-                            top: `${scaledBox.y}px`,
-                            left: isRight
-                                ? `${scaledBox.x + scaledBox.width + 10}px`
-                                : `${scaledBox.x - 160}px`, // 160px is the estimated width of the pop-up
+                            top: `${scaledBox.y - 20}px`,
+                            left : `${scaledBox.x - 20}px`,
+                            maxWidth: `${scaledBox.width + 20}px`,
                             zIndex: 30,
-                            minWidth: "150px",
+                            minWidth : "150px"
                         };
 
                         return (
@@ -271,7 +280,6 @@ export default function MangaReader() {
                                     className="absolute bg-white shadow-md border-2 border-black p-2 rounded-md"
                                     style={popupStyle}
                                 >
-                                    <h3 className="text-sm font-bold m-1 z-">Box Info</h3>
                                     <p className="mt-3 mb-3" style={{ whiteSpace: "pre-line" }}>{box.text}</p>
                                     <Button variant="outline" size="sm" onClick={() => setActiveBoxIndex(null)}>
                                         Close
@@ -329,6 +337,11 @@ export default function MangaReader() {
         </div>
       </div>
       <TutorialButton isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
+      <TranslationMethodModal
+        isOpen={isTranslationMethodOpen}
+        onClose={() => setIsTranslationMethodOpen(false)}
+        onSelect={handleTranslationMethodSelect}
+      />
     </div>
   )
 }

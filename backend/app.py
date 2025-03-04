@@ -10,6 +10,7 @@ from together import Together
 from manga_ocr import MangaOcr
 from dotenv import load_dotenv
 import threading
+import deepl
 
 lock = threading.Lock()
 
@@ -28,6 +29,8 @@ ocr = MangaOcr()
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
 PROCESS_FOLDER = os.path.join(os.getcwd(), 'process') 
 ALLOWED_EXTENSIONS = {'zip', 'png', 'jpg', 'jpeg', 'webp'}
+
+deepl_translator = deepl.Translator(os.getenv('DEEPL_API_KEY'))
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -138,6 +141,7 @@ def process_region():
         data = request.json
         image_url = data['image']
         region = data['region']
+        method = data['method']
 
         # Extract the filename from the URL
         image_filename = image_url.split('/')[-1]
@@ -164,26 +168,34 @@ def process_region():
             text = ocr(output_path)
             print(f"OCR text (raw): {text}")
 
-            message.append({"role": "user", "content": text})
-            
-            response = client.chat.completions.create(
-                model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-                messages=message,
-                max_tokens=None,
-                temperature=0.7,
-                top_p=0.7,
-                top_k=50,
-                repetition_penalty=1,
-                stop=["<｜end▁of▁sentence｜>"],
-                stream=True
-            )
+            translated_text = ""
+            if (method == "method1"):
+                print("Using method 1")
+                message.append({"role": "user", "content": text})
+                
+                response = client.chat.completions.create(
+                    model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+                    messages=message,
+                    max_tokens=None,
+                    temperature=0.7,
+                    top_p=0.7,
+                    top_k=50,
+                    repetition_penalty=1,
+                    stop=["<｜end▁of▁sentence｜>"],
+                    stream=True
+                )
 
-            translated_text = ""   
+                for token in response:
+                    if hasattr(token, 'choices'):
+                        translated_text += token.choices[0].delta.content
 
-            for token in response:
-                if hasattr(token, 'choices'):
-                    translated_text += token.choices[0].delta.content
+            # UNCOMMENT THIS TO USE DEEPL
+            else:
+                print("Using method 2")
+                translated = deepl_translator.translate_text(text, target_lang="EN-US")
+                translated_text = translated.text
             
+            print(type(translated_text))
             print(f"Translated text: {translated_text}")
             message.append({"role": "assistant", "content": translated_text})
 
