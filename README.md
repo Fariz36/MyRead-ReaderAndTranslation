@@ -15,6 +15,7 @@
 ### **Backend:**
 - **Flask** (Python)
 - **Mokuro-OCR** for japanese character recognition, https://github.com/kha-white/mokuro
+- **YOLOv8s** for automatic detection
 
 ---
 
