@@ -30,7 +30,7 @@ git clone https://github.com/Fariz36/MyRead-ReaderAndTranslation.git
 ```bash
 cd backend                       # Moes into the backend directory
 python -m venv venv              # Make a venv
-python venv/Script/activate      # Activate the venv
+venv/Script/activate      # Activate the venv
 pip install -r requirement.txt
 ```
 
